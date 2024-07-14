@@ -12,10 +12,10 @@
     <!-- tab组件切换路由绑定chage事件-->
     <a-tabs v-model:activeKey="activeKey" @change="onTabChange">
       <a-tab-pane key="post" tab="文章">
-        <post-list />
+        <post-list :post-list="postList" />
       </a-tab-pane>
       <a-tab-pane key="user" tab="用户">
-        <user-list />
+        <user-list :user-list="userList" />
       </a-tab-pane>
       <a-tab-pane key="picture" tab="图片">
         <picture-list />
@@ -35,6 +35,24 @@ import { watchEffect } from "vue";
 
 // useRoute将url信息同步到页面上
 import { useRouter, useRoute } from "vue-router";
+import myAxios from "@/plugins/myAxios";
+
+// 文章列表
+const postList = ref([]);
+
+// 用户列表
+const userList = ref([]);
+
+// 文章列表
+myAxios.post("post/list/page/vo", {}).then((res: any) => {
+  postList.value = res.records;
+});
+
+// 用户列表
+myAxios.post("user/list/page/vo", {}).then((res: any) => {
+  console.log(res);
+  userList.value = res.records;
+});
 
 // 将url同步到页面上
 const route = useRoute();
