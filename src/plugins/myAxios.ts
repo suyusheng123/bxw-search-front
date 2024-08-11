@@ -12,9 +12,6 @@ const instance = axios.create({
   headers: {},
 });
 
-// 全局导出axios
-export default instance;
-
 // 全局导出axios响应的数据
 // 添加响应拦截器,把后端返回的数据响应给前端
 instance.interceptors.response.use(
@@ -32,3 +29,5 @@ instance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export default instance;

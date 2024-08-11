@@ -4,7 +4,7 @@
       <a-list-item>
         <a-list-item-meta :description="item.content">
           <template #title>
-            <a href="https://www.antdv.com/">{{ item.title }}</a>
+            <a>{{ item.title }}</a>
           </template>
           <template #avatar>
             <a-avatar :src="black" />
