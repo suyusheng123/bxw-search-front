@@ -85,7 +85,6 @@ const onTabChange = (key: string) => {
     path: `/${key}`,
     query: searchParams.value,
   });
-  loadData(searchParams.value);
 };
 
 onMounted(() => {
@@ -105,28 +104,28 @@ const loadData = (params: any) => {
     pageSize: params.pageSize,
     searchText: params.text,
   };
-  // 文章列表请求
-  myAxios.post("post/list/page/vo", queryData).then((res: any) => {
-    postList.value = res.records;
-  });
 
-  // 用户列表请求
-  myAxios.post("user/list/page/vo", queryData).then((res: any) => {
-    console.log(res);
-    userList.value = res.records;
-  });
-
-  // 图片列表请求
+  // 聚合接口请求
   myAxios
-    .post("picture/list/page/vo", queryData)
+    .post("search/all", queryData)
     .then((res) => {
       loading.value = true;
+      if (
+        res.pictureList.length == 0 &&
+        res.userList.length == 0 &&
+        res.postList.length == 0
+      ) {
+        loading.value = false;
+        finish.value = true;
+      }
       if (searchParams.value.pageNum > 20) {
         loading.value = false;
         finish.value = true;
       }
       console.log(res);
-      pictureList.value = [...pictureList.value, ...(res.records as [])];
+      pictureList.value = [...pictureList.value, ...(res.pictureList as [])];
+      postList.value = [...postList.value, ...(res.postList as [])];
+      userList.value = [...userList.value, ...(res.userList as [])];
     })
     .catch((error: any) => {
       loading.value = false;
@@ -152,6 +151,7 @@ const handleScroll = () => {
     clientHeight + scrollTop + 100 >= scrollHeight &&
     searchParams.value.pageNum <= 20
   ) {
+    console.log(searchParams.value.pageNum);
     //快到底时----加载
     searchParams.value.pageNum++;
     loadData(searchParams.value);

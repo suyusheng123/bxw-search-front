@@ -1,31 +1,4 @@
 <template>
-  <!--  <a-list item-layout="horizontal" :data-source="props.pictureList">-->
-  <!--    <template #renderItem="{ item }">-->
-  <!--      <a-list-item>-->
-  <!--        <a-card hoverable style="width: 240px">-->
-  <!--          <template #cover>-->
-  <!--            <img-->
-  <!--              alt="example"-->
-  <!--              :src="item.murl"-->
-  <!--              style="width: 100%; height: auto"-->
-  <!--              referrerPolicy="no-referrer"-->
-  <!--            />-->
-  <!--          </template>-->
-  <!--          <a-card-meta>-->
-  <!--            <template #description>-->
-  <!--              <a-->
-  <!--                :href="item.purl"-->
-  <!--                target="_blank"-->
-  <!--                class="text-black text-ellipsis"-->
-  <!--                :title="item.title"-->
-  <!--                >{{ item.title }}}</a-->
-  <!--              >-->
-  <!--            </template>-->
-  <!--          </a-card-meta>-->
-  <!--        </a-card>-->
-  <!--      </a-list-item>-->
-  <!--    </template>-->
-  <!--  </a-list>-->
   <Waterfall
     :lazyload="false"
     :breakpoints="breakpoints"
@@ -38,6 +11,7 @@
           class="card_img"
           @mouseover="hoveredImage = item.turl"
           @mouseleave="hoveredImage = ''"
+          @click="previewImage(item.turl)"
         >
           <lazy-img
             alt="example"
@@ -59,15 +33,58 @@
       </div>
     </template>
   </Waterfall>
+  <vue-easy-lightbox
+    :visible="visible"
+    :imgs="imgs"
+    :index="index"
+    @hide="handleHide"
+  >
+  </vue-easy-lightbox>
 </template>
 
 <script setup lang="ts">
-import { withDefaults, defineProps, ref } from "vue";
+import { defineProps, ref, withDefaults } from "vue";
 import { LazyImg, Waterfall } from "vue-waterfall-plugin-next";
+import VueEasyLightbox from "vue-easy-lightbox";
 import "vue-waterfall-plugin-next/dist/style.css";
 
+const visible = ref(false);
+const imgs = ref([] as string[]);
+const index = ref(0);
+const breakpoints = ref({
+  3000: {
+    //当屏幕宽度小于等于3000
+    rowPerView: 8, // 一行8图
+  },
+  1200: {
+    //当屏幕宽度小于等于1200
+    rowPerView: 4,
+  },
+
+  500: {
+    //当屏幕宽度小于等于500
+    rowPerView: 3,
+  },
+});
 const hoveredImage = ref("");
 
+interface Props {
+  pictureList: any[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  pictureList: () => [],
+});
+const previewImage = (url: string) => {
+  // 将props.pictureList的turl全部提取出来，放到一个数组里去
+  const urls = props.pictureList.map((item: any) => item.turl) as string[];
+  console.log(urls);
+  imgs.value = urls; // 设置预览图片的URL
+  console.log(imgs.value);
+  // 搜索我点击的图片在数组中的位置
+  index.value = urls.indexOf(url); // 设置预览图片的索引
+  visible.value = true; // 显示预览框
+};
 const getImageStyle = (url: string) => {
   const scaleAmount = 1.1; // 图片放大的比例
   const translateAmount = 5; // 图片平移的距离（像素）
@@ -91,35 +108,11 @@ const getImageStyle = (url: string) => {
   }
 };
 
-interface Props {
-  pictureList: any[];
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  pictureList: () => [],
-});
-
-const breakpoints = ref({
-  3000: {
-    //当屏幕宽度小于等于3000
-    rowPerView: 8, // 一行8图
-  },
-  1200: {
-    //当屏幕宽度小于等于1200
-    rowPerView: 4,
-  },
-
-  500: {
-    //当屏幕宽度小于等于500
-    rowPerView: 3,
-  },
-});
+const handleHide = () => {
+  visible.value = false;
+};
 </script>
 <style lang="scss" scoped>
-.image-zoom-hover {
-  transform: scale(1.05); /* 放大图片的百分比 */
-}
-
 /* 定义CSS类来设置文字颜色 */
 .text-black {
   color: black;
@@ -148,7 +141,7 @@ const breakpoints = ref({
     overflow: hidden; // 确保图片在放大时不会溢出容器
     position: relative; // 为图片提供定位上下文
     display: block; // 使矩形包裹图片
-    box-shadow: 3px -4px 4px 0px rgba(28, 62, 198, 0.59);
+    box-shadow: 2px -2px 4px 0px rgba(28, 62, 198, 0.59);
 
     &.active {
       border: 1px solid #e7e7e7;
