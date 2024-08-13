@@ -12,6 +12,7 @@
     "axios": "^1.7.2",
     "core-js": "^3.8.3",
     "sass": "^1.77.8",
+    "vant": "^4.9.4",
     "vue": "^3.2.13",
     "vue-easy-lightbox": "^1.19.0",
     "vue-router": "^4.0.3",

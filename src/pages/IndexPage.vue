@@ -12,10 +12,18 @@
     <!-- tab组件切换路由绑定chage事件-->
     <a-tabs v-model:activeKey="activeKey" @change="onTabChange">
       <a-tab-pane key="post" tab="文章">
-        <post-list :post-list="postList" />
+        <div class="container" id="main">
+          <post-list :post-list="postList" />
+          <div class="loading-text" v-if="loading">加载中...</div>
+          <div class="loading-text" v-if="finish">没有更多了</div>
+        </div>
       </a-tab-pane>
       <a-tab-pane key="user" tab="用户">
-        <user-list :user-list="userList" />
+        <div class="container" id="main">
+          <user-list :user-list="userList" />
+          <div class="loading-text" v-if="loading">加载中...</div>
+          <div class="loading-text" v-if="finish">没有更多了</div>
+        </div>
       </a-tab-pane>
       <a-tab-pane key="picture" tab="图片">
         <div class="container" id="main">
@@ -53,6 +61,7 @@ const initSearchParams = {
   text: "",
   pageNum: 1,
   pageSize: 35,
+  type: "",
 };
 const searchParams = ref(initSearchParams); // 抽象出一个变量,用来记录传入url上的参数
 const route = useRoute(); // 将url同步到页面上
@@ -66,6 +75,7 @@ watchEffect(() => {
   searchParams.value = {
     ...initSearchParams,
     text: route.query.text as string,
+    type: route.query.type as string,
   };
 });
 
@@ -81,51 +91,82 @@ const onSearch = (value: string) => {
 };
 
 const onTabChange = (key: string) => {
-  router.push({
-    path: `/${key}`,
-    query: searchParams.value,
-  });
+  searchParams.value.type = key;
+  router
+    .push({
+      path: `/${key}`,
+      query: searchParams.value,
+    })
+    .then(() => {
+      loadData(searchParams.value);
+    });
 };
-
-onMounted(() => {
-  loadData(searchParams.value);
-  window.addEventListener("scroll", debounce(handleScroll, 100));
-});
-
-onUnmounted(() => {
-  window.removeEventListener("scroll", handleScroll);
-});
 /**
  * 请求文章列表，用户列表，图片列表
  */
 const loadData = (params: any) => {
+  loading.value = true;
+  finish.value = false;
   const queryData = {
     current: params.pageNum,
     pageSize: params.pageSize,
     searchText: params.text,
+    type:
+      params.type === null || params.type === undefined ? "post" : params.type,
   };
 
   // 聚合接口请求
   myAxios
     .post("search/all", queryData)
     .then((res) => {
-      loading.value = true;
-      if (
-        res.pictureList.length == 0 &&
-        res.userList.length == 0 &&
-        res.postList.length == 0
-      ) {
+      if (searchParams.value.pageNum > 5) {
         loading.value = false;
         finish.value = true;
+        return;
       }
-      if (searchParams.value.pageNum > 20) {
+      if (res.pictureList !== null) {
+        if (res.pictureList.length === 0) {
+          loading.value = false;
+          finish.value = true;
+          return;
+        }
+        pictureList.value = [...pictureList.value, ...(res.pictureList as [])];
+      } else if (res.postList !== null) {
+        if (
+          res.postList.length === 0 ||
+          Number(res.total) === postList.value.length ||
+          Number(res.total) === res.postList.length
+        ) {
+          loading.value = false;
+          finish.value = true;
+          return;
+        }
+        postList.value = [...postList.value, ...(res.postList as [])];
+        if (Number(res.total) === postList.value.length) {
+          loading.value = false;
+          finish.value = true;
+          return;
+        }
+      } else if (res.userList !== null) {
+        if (
+          res.userList.length === 0 ||
+          Number(res.total) === userList.value.length
+        ) {
+          loading.value = false;
+          finish.value = true;
+          return;
+        }
+        userList.value = [...userList.value, ...(res.userList as [])];
+        if (Number(res.total) === userList.value.length) {
+          loading.value = false;
+          finish.value = true;
+          return;
+        }
+      } else {
         loading.value = false;
         finish.value = true;
+        return;
       }
-      console.log(res);
-      pictureList.value = [...pictureList.value, ...(res.pictureList as [])];
-      postList.value = [...postList.value, ...(res.postList as [])];
-      userList.value = [...userList.value, ...(res.userList as [])];
     })
     .catch((error: any) => {
       loading.value = false;
@@ -134,7 +175,7 @@ const loadData = (params: any) => {
     });
 };
 const handleScroll = () => {
-  const scrollHeight = Math.max(
+  const scrollHeight = Math.min(
     document.documentElement.scrollHeight,
     document.body.scrollHeight
   );
@@ -146,32 +187,29 @@ const handleScroll = () => {
   //窗口可视范围高度
   const clientHeight =
     window.innerHeight ||
-    Math.min(document.documentElement.clientHeight, document.body.clientHeight);
+    Math.max(document.documentElement.clientHeight, document.body.clientHeight);
   if (
-    clientHeight + scrollTop + 100 >= scrollHeight &&
-    searchParams.value.pageNum <= 20
+    clientHeight + scrollTop + 0.9 >= scrollHeight &&
+    searchParams.value.pageNum <= 5
   ) {
     console.log(searchParams.value.pageNum);
+    console.log(clientHeight + scrollTop, scrollHeight);
     //快到底时----加载
+    setTimeout(() => {
+      loadData(searchParams.value);
+    }, 1000);
     searchParams.value.pageNum++;
-    loadData(searchParams.value);
   }
 };
 
-function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeout: number | undefined = undefined;
-  return function (...args: Parameters<T>) {
-    if (timeout !== undefined) {
-      clearTimeout(timeout);
-    }
-    timeout = setTimeout(() => {
-      fn(...args);
-    }, delay);
-  };
-}
+onMounted(() => {
+  loadData(searchParams.value);
+  window.addEventListener("scroll", handleScroll);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("scroll", handleScroll);
+});
 </script>
 
 <style lang="scss" scoped>

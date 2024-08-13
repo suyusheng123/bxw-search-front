@@ -8,7 +8,7 @@ message.config({
 });
 const instance = axios.create({
   baseURL: "http://localhost:8101/api/",
-  timeout: 10000,
+  // timeout: 100000000000000000000n,
   headers: {},
 });
 
@@ -17,7 +17,6 @@ const instance = axios.create({
 instance.interceptors.response.use(
   function (response) {
     const data = response.data;
-    console.log(data);
     if (data.code === 0) {
       return data.data;
     }
