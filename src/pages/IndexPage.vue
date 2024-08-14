@@ -98,6 +98,7 @@ const onTabChange = (key: string) => {
       query: searchParams.value,
     })
     .then(() => {
+      searchParams.value.pageNum = 1;
       loadData(searchParams.value);
     });
 };
@@ -114,58 +115,31 @@ const loadData = (params: any) => {
     type:
       params.type === null || params.type === undefined ? "post" : params.type,
   };
-
+  if (searchParams.value.pageNum > 10) {
+    loading.value = false;
+    finish.value = true;
+    return;
+  }
   // 聚合接口请求
   myAxios
     .post("search/all", queryData)
     .then((res) => {
-      if (searchParams.value.pageNum > 5) {
-        loading.value = false;
-        finish.value = true;
-        return;
-      }
-      if (res.pictureList !== null) {
-        if (res.pictureList.length === 0) {
-          loading.value = false;
-          finish.value = true;
-          return;
-        }
-        pictureList.value = [...pictureList.value, ...(res.pictureList as [])];
-      } else if (res.postList !== null) {
-        if (
-          res.postList.length === 0 ||
-          Number(res.total) === postList.value.length ||
-          Number(res.total) === res.postList.length
-        ) {
-          loading.value = false;
-          finish.value = true;
-          return;
-        }
-        postList.value = [...postList.value, ...(res.postList as [])];
-        if (Number(res.total) === postList.value.length) {
-          loading.value = false;
-          finish.value = true;
-          return;
-        }
-      } else if (res.userList !== null) {
-        if (
-          res.userList.length === 0 ||
-          Number(res.total) === userList.value.length
-        ) {
-          loading.value = false;
-          finish.value = true;
-          return;
-        }
-        userList.value = [...userList.value, ...(res.userList as [])];
-        if (Number(res.total) === userList.value.length) {
-          loading.value = false;
-          finish.value = true;
-          return;
+      if (res.dataList !== null) {
+        if (queryData.type === "picture") {
+          if (res.dataList.length === 0) {
+            loading.value = false;
+            finish.value = true;
+            return;
+          }
+          pictureList.value = [...pictureList.value, ...(res.dataList as [])];
+        } else if (queryData.type === "post") {
+          if (!judgeList(res, postList)) return;
+        } else if (queryData.type === "user") {
+          if (!judgeList(res, userList)) return;
         }
       } else {
         loading.value = false;
         finish.value = true;
-        return;
       }
     })
     .catch((error: any) => {
@@ -174,7 +148,26 @@ const loadData = (params: any) => {
       throw new Error(error);
     });
 };
-const handleScroll = () => {
+/**
+ * 判断是哪个集合的数据(用户和帖子)
+ * @param res
+ * @param list
+ */
+const judgeList = (res: any, list: any) => {
+  if (res.dataList.length === 0 || Number(res.total) === list.value.length) {
+    loading.value = false;
+    finish.value = true;
+    return false;
+  }
+  list.value = [...list.value, ...(res.dataList as [])];
+  if (Number(res.total) === list.value.length) {
+    loading.value = false;
+    finish.value = true;
+    return false;
+  }
+  return true;
+};
+const handleScroll = async () => {
   const scrollHeight = Math.min(
     document.documentElement.scrollHeight,
     document.body.scrollHeight
@@ -189,22 +182,35 @@ const handleScroll = () => {
     window.innerHeight ||
     Math.max(document.documentElement.clientHeight, document.body.clientHeight);
   if (
-    clientHeight + scrollTop + 0.9 >= scrollHeight &&
-    searchParams.value.pageNum <= 5
+    clientHeight + scrollTop >= scrollHeight &&
+    searchParams.value.pageNum <= 10
   ) {
-    console.log(searchParams.value.pageNum);
-    console.log(clientHeight + scrollTop, scrollHeight);
     //快到底时----加载
-    setTimeout(() => {
-      loadData(searchParams.value);
-    }, 1000);
+    console.log(clientHeight + scrollTop, scrollHeight);
     searchParams.value.pageNum++;
+    console.log(searchParams.value.pageNum);
+    await loadData(searchParams.value);
   }
 };
 
+function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeout: number | undefined = undefined;
+  return function (...args: Parameters<T>) {
+    if (timeout !== undefined) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      fn(...args);
+    }, delay);
+  };
+}
+
 onMounted(() => {
   loadData(searchParams.value);
-  window.addEventListener("scroll", handleScroll);
+  window.addEventListener("scroll", debounce(handleScroll, 200));
 });
 
 onUnmounted(() => {

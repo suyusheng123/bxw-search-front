@@ -88,13 +88,12 @@ const previewImage = (url: string) => {
 const getImageStyle = (url: string) => {
   const scaleAmount = 1.1; // 图片放大的比例
   const translateAmount = 5; // 图片平移的距离（像素）
-
   if (hoveredImage.value === url) {
     return {
       transform: `translate(-${translateAmount}px, -${translateAmount}px) scale(${scaleAmount})`,
       transition: "transform 0.3s ease",
-      width: "100%", // 确保图片占满整个矩形
-      height: "auto", // 保持图片的纵横比
+      width: "100%",
+      height: "240px",
       display: "block", // 确保图片块级显示
     };
   } else {
@@ -102,7 +101,7 @@ const getImageStyle = (url: string) => {
       transform: "none",
       transition: "transform 0.3s ease",
       width: "100%", // 确保图片占满整个矩形
-      height: "auto", // 保持图片的纵横比
+      height: "240px", // 保持图片的纵横比
       display: "block", // 确保图片块级显示
     };
   }
@@ -121,7 +120,7 @@ const handleHide = () => {
   overflow: hidden; /* 超出部分隐藏 */
   text-overflow: ellipsis; /* 显示省略号 */
   display: -webkit-box; /* 使用伸缩盒模型显示 */
-  -webkit-line-clamp: 2; /* 限制显示的行数 */
+  -webkit-line-clamp: 1; /* 限制显示的行数 */
   -webkit-box-orient: vertical; /* 设置伸缩方向为垂直 */
 }
 
@@ -142,7 +141,7 @@ const handleHide = () => {
     position: relative; // 为图片提供定位上下文
     display: block; // 使矩形包裹图片
     box-shadow: 2px -2px 4px 0px rgba(28, 62, 198, 0.59);
-
+    height: 240px;
     &.active {
       border: 1px solid #e7e7e7;
     }
