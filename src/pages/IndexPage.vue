@@ -49,6 +49,7 @@ import { watchEffect } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import myAxios from "@/plugins/myAxios";
 import { onMounted } from "vue";
+import { Callback } from "vant/lib/lazyload/vue-lazyload";
 
 const postList = ref([]); // 文章列表
 const userList = ref([]); // 用户列表
@@ -167,7 +168,7 @@ const judgeList = (res: any, list: any) => {
   }
   return true;
 };
-const handleScroll = async () => {
+const handleScroll = () => {
   const scrollHeight = Math.min(
     document.documentElement.scrollHeight,
     document.body.scrollHeight
@@ -189,28 +190,32 @@ const handleScroll = async () => {
     console.log(clientHeight + scrollTop, scrollHeight);
     searchParams.value.pageNum++;
     console.log(searchParams.value.pageNum);
-    await loadData(searchParams.value);
+    loadData(searchParams.value);
   }
 };
 
-function debounce<T extends (...args: any[]) => any>(
-  fn: T,
-  delay: number
-): (...args: Parameters<T>) => void {
-  let timeout: number | undefined = undefined;
-  return function (...args: Parameters<T>) {
-    if (timeout !== undefined) {
-      clearTimeout(timeout);
+/**
+ * 创建一个节流函数,确保在滚动的时候在规定的时间内只执行一次
+ */
+function throttle<T extends (...args: any[]) => any>(
+  func: T,
+  limit: number
+): T {
+  let inThrottle = true;
+  return function (this: any, ...args: Parameters<T>) {
+    if (inThrottle) {
+      inThrottle = false;
+      setTimeout(() => {
+        func.apply(this, args);
+        inThrottle = true;
+      }, limit);
     }
-    timeout = setTimeout(() => {
-      fn(...args);
-    }, delay);
-  };
+  } as T;
 }
 
 onMounted(() => {
   loadData(searchParams.value);
-  window.addEventListener("scroll", debounce(handleScroll, 200));
+  window.addEventListener("scroll", throttle(handleScroll, 800));
 });
 
 onUnmounted(() => {
