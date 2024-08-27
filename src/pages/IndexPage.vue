@@ -1,6 +1,19 @@
 <template>
-  <div class="index-page">
+  <div>
     <div class="fixed-container">
+      <div class="emoji-container">
+        <span class="title-class">
+          坤
+          <BugTwoTone
+            :style="{
+              'background-color': 'transparent',
+              border: 'none',
+              'font-size': '25px',
+            }"
+          />
+          猎手
+        </span>
+      </div>
       <div class="search-container">
         <a-auto-complete
           v-model:value="searchText"
@@ -29,47 +42,51 @@
         <a-button size="large" @click="onSearch">搜索</a-button>
       </div>
     </div>
-
-    <my-divider />
-    <!-- tab组件切换路由绑定chage事件-->
-    <a-tabs
-      defaultActiveKey="post"
-      v-model:activeKey="activeKey"
-      @change="onTabChange"
-      size="large"
-    >
-      <a-tab-pane key="post" tab="文章">
-        <div class="container" id="main">
-          <PostList :post-list="postList" />
-          <div class="loading-text" v-if="loading">加载中...</div>
-          <div class="loading-text" v-if="finish">没有更多了</div>
-        </div>
-      </a-tab-pane>
-      <a-tab-pane key="user" tab="用户">
-        <div class="container" id="main">
-          <UserList :user-list="userList" />
-          <div class="loading-text" v-if="loading">加载中...</div>
-          <div class="loading-text" v-if="finish">没有更多了</div>
-        </div>
-      </a-tab-pane>
-      <a-tab-pane key="picture" tab="图片">
-        <div class="container" id="main">
-          <PictureList :picture-list="pictureList" />
-          <div class="loading-text" v-if="loading">加载中...</div>
-          <div class="loading-text" v-if="finish">没有更多了</div>
-        </div>
-      </a-tab-pane>
-    </a-tabs>
+    <div class="index-page">
+      <!-- tab组件切换路由绑定chage事件-->
+      <a-tabs
+        defaultActiveKey="article"
+        v-model:activeKey="activeKey"
+        @change="onTabChange"
+        size="large"
+      >
+        <a-tab-pane key="article" tab="文章">
+          <ArticleList
+            :article-list="articleList"
+            :loading="pageLoading"
+            :pagination="pagination"
+            :is-highlight="isHighlight"
+            :search-text="route.query.text ? String(route.query.text) : ''"
+          />
+        </a-tab-pane>
+        <a-tab-pane key="video" tab="视频">
+          <VideoList
+            :video-list="videoList"
+            :loading="pageLoading"
+            :pagination="pagination"
+            :is-highlight="isHighlight"
+            :search-text="route.query.text ? String(route.query.text) : ''"
+          />
+        </a-tab-pane>
+        <a-tab-pane key="picture" tab="图片">
+          <div class="container" id="main">
+            <PictureList :picture-list="pictureList" />
+            <div class="loading-text" v-if="loading">加载中...</div>
+            <div class="loading-text" v-if="finish">没有更多了</div>
+          </div>
+        </a-tab-pane>
+      </a-tabs>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { onUnmounted, ref } from "vue";
-import PostList from "@/components/PostList.vue";
-import UserList from "@/components/UserList.vue";
+import ArticleList from "@/components/ArticleList.vue";
 import PictureList from "@/components/PictureList.vue";
-import MyDivider from "@/components/MyDivider.vue";
+import VideoList from "@/components/VideoList.vue";
 import { watchEffect } from "vue";
+// 引入自定义GIF
 // 这是vue-router自带的函数必须写useRouter函数，不能修改，useRouter将页面信息同步到url上
 
 // useRoute将url信息同步到页面上
@@ -79,181 +96,34 @@ import { onMounted } from "vue";
 import myDenounce from "@/plugins/myDenounce";
 import myThrottle from "@/plugins/Throttle";
 import { CloseOutlined } from "@ant-design/icons-vue";
+import { BugTwoTone } from "@ant-design/icons-vue";
 
 // 添加一个响应式变量来控制下拉框的显示状态
 const isDropdownVisible = ref(false);
 const isSearching = ref(false); // 确保搜索框只能触发一次
-const postList = ref([]); // 文章列表
-const userList = ref([]); // 用户列表
+const articleList = ref([]); // 文章列表
 const pictureList = ref([]); // 图片列表
-const loading = ref(false);
+const videoList = ref([]); // 视频列表
+const loading = ref(false); // 下拉状态显示字段
 const finish = ref(false);
+const pageLoading = ref(false);
 const route = useRoute(); // 将url同步到页面上
 const router = useRouter(); // 将页面信息同步到url上
+const isHighlight = ref(0);
 let activeKey = route.params.category; //将url上的标签key绑定在页面的标签上
 // 抽象出一个初始变量,用来记录查询的初始参数
 const initSearchParams = {
   text: "",
   pageNum: 1,
-  pageSize: 20,
-  type: activeKey,
-  sortField: "updateTime",
-  sortOrder: "desc",
+  pageSize: 10,
+  type: "",
+  sortField: "id",
+  sortOrder: "descend",
+  scrollPageNum: 1,
 };
-const searchText = ref(route.query.text);
+const searchText = ref("");
 const searchParams = ref(initSearchParams); // 抽象出一个变量,用来记录传入url上的参数
 const options = ref<any[]>([]);
-
-/**
- * 搜索建议
- */
-const getSuggest = (value: string) => {
-  options.value = [];
-  if (value == null || value == "") {
-    return;
-  }
-  searchText.value = value;
-  console.log(searchText.value);
-  myAxios
-    .get("/search/suggest?keyword=" + searchText.value)
-    .then((res: any) => {
-      if (res) {
-        res.map((suggest: any) => {
-          const tempMap = {
-            label: suggest.title,
-            value: suggest.title,
-          };
-          isDropdownVisible.value = true;
-          options.value.push(tempMap);
-        });
-      }
-    })
-    .catch((e: any) => {
-      throw new Error(e);
-    });
-};
-
-/**
- * 获取搜索建议-防抖
- */
-const getSuggestDebounce = myDenounce(getSuggest, 200);
-
-/**
- * 请求文章列表，用户列表，图片列表
- */
-const loadData = (params: any) => {
-  loading.value = true;
-  finish.value = false;
-  const queryData = {
-    current: params.pageNum,
-    pageSize: params.pageSize,
-    searchText: params.text,
-    type: params.type,
-  };
-  if (searchParams.value.pageNum > 10) {
-    loading.value = false;
-    finish.value = true;
-    return;
-  }
-  // 聚合接口请求
-  myAxios
-    .post("search/all", queryData)
-    .then((res) => {
-      if (res.dataList !== null) {
-        if (queryData.type === "picture") {
-          if (res.dataList.length === 0) {
-            loading.value = false;
-            finish.value = true;
-            return;
-          }
-          pictureList.value = [...pictureList.value, ...(res.dataList as [])];
-        } else if (queryData.type === "post") {
-          if (!judgeList(res, postList)) return;
-        } else if (queryData.type === "user") {
-          if (!judgeList(res, userList)) return;
-        }
-      } else {
-        loading.value = false;
-        finish.value = true;
-      }
-    })
-    .catch((error: any) => {
-      loading.value = false;
-      finish.value = true;
-      isSearching.value = false;
-      throw new Error(error);
-    });
-};
-
-// 监听
-watchEffect(() => {
-  searchParams.value = {
-    ...initSearchParams,
-    text:
-      route.query.text === null || route.query.text === undefined
-        ? ""
-        : (route.query.text as string),
-    type:
-      route.params.category === null || route.params.category === undefined
-        ? "post"
-        : route.params.category,
-  };
-});
-
-const onSearch = () => {
-  isSearching.value = true;
-  isDropdownVisible.value = false;
-  //url 拼接搜索条件
-  router
-    .push({
-      query: {
-        ...searchParams.value,
-        text: searchText.value,
-      },
-    })
-    .then(() => {
-      loadData(searchParams.value);
-      // 搜索完成后，清除锁变量
-      isSearching.value = false;
-      window.location.reload();
-    });
-};
-// 输入框keydown事件处理函数
-const handleEnterKey = (event: KeyboardEvent) => {
-  if (!isSearching.value) {
-    event.preventDefault(); // 防止默认行为，如提交表单
-    onSearch(); // 执行搜索操作
-  }
-};
-
-const onTabChange = (key: string) => {
-  searchParams.value.pageNum = 1;
-  searchParams.value.type = key;
-  router.push({
-    path: `/${key}`,
-    query: searchParams.value, //搜索参数
-  });
-  loadData(searchParams.value);
-};
-/**
- * 判断是哪个集合的数据(用户和帖子)
- * @param res
- * @param list
- */
-const judgeList = (res: any, list: any) => {
-  if (res.dataList.length === 0 || Number(res.total) === list.value.length) {
-    loading.value = false;
-    finish.value = true;
-    return false;
-  }
-  list.value = [...list.value, ...(res.dataList as [])];
-  if (Number(res.total) === list.value.length) {
-    loading.value = false;
-    finish.value = true;
-    return false;
-  }
-  return true;
-};
 const handleScroll = () => {
   isDropdownVisible.value = false;
   const scrollHeight = Math.min(
@@ -270,7 +140,6 @@ const handleScroll = () => {
     window.innerHeight ||
     Math.max(document.documentElement.clientHeight, document.body.clientHeight);
   let element = document.querySelector(".fixed-container");
-  console.log(scrollTop);
   if (!element) return;
   if (scrollTop === 0) {
     element.style.boxShadow = "none";
@@ -280,27 +149,247 @@ const handleScroll = () => {
   }
   if (
     clientHeight + scrollTop >= scrollHeight &&
-    searchParams.value.pageNum <= 10
+    searchParams.value.scrollPageNum <= 10 &&
+    searchParams.value.type === "picture"
   ) {
     //快到底时----加载
     console.log(clientHeight + scrollTop, scrollHeight);
-    searchParams.value.pageNum++;
-    console.log(searchParams.value.pageNum);
+    searchParams.value.scrollPageNum++;
+    console.log(searchParams.value.scrollPageNum);
     loadData(searchParams.value);
   }
 };
+let isScrollEventAdded = false; // 标志变量，用来追踪是否添加了滚动事件监听器
+let throttledHandleScroll = myThrottle(handleScroll, 800);
+// 监听
+watchEffect(() => {
+  searchText.value = route.query.text ? String(route.query.text) : "";
+  searchParams.value = {
+    ...initSearchParams,
+    pageNum: route.query.pageNum ? Number(route.query.pageNum) : 1,
+    scrollPageNum: route.query.scrollPageNum
+      ? Number(route.query.scrollPageNum)
+      : 1,
+    text: route.query.text ? String(route.query.text) : "",
+    type: route.params.category ? String(route.params.category) : "article",
+  };
+  // 根据当前标签页类型决定是否添加或移除滚动事件监听器
+  if (!isScrollEventAdded) {
+    // 添加滚动事件监听器
+    window.addEventListener("scroll", throttledHandleScroll);
+    isScrollEventAdded = true;
+  }
+});
 
+const pagination = {
+  onChange: (page: number) => {
+    pageNumChange(page);
+  },
+  current: Number(searchParams.value.pageNum),
+  pageSize: initSearchParams.pageSize,
+  total: 0,
+  showSizeChanger: false,
+};
+
+/**
+ * 切换页面函数
+ */
+const pageNumChange = (page: number) => {
+  searchParams.value.pageNum = page;
+  searchParams.value.text = searchText.value as string;
+  pagination.current = page;
+  router.push({
+    query: searchParams.value,
+  });
+  loadData(searchParams.value);
+};
+/**
+ * 搜索建议
+ */
+const getSuggest = (value: string) => {
+  options.value = [];
+  if (value == null || value == "") {
+    return;
+  }
+  searchText.value = value ? value.replace(/\s+/g, "") : "";
+  // searchText.value = value;
+  // console.log(searchText.value);
+  myAxios
+    .get("/search/suggest?keyword=" + searchText.value)
+    .then((res: any) => {
+      if (res) {
+        res.map((suggest: any) => {
+          isDropdownVisible.value = true;
+          let suggestObj = {
+            value: suggest,
+          };
+          // 截取前8条
+          options.value.push(suggestObj);
+        });
+      }
+    })
+    .catch((e: any) => {
+      throw new Error(e);
+    });
+};
+
+/**
+ * 获取搜索建议-防抖
+ */
+const getSuggestDebounce = myDenounce(getSuggest, 200);
+
+const onSearch = () => {
+  isSearching.value = true;
+  isDropdownVisible.value = false;
+  searchParams.value.pageNum = 1;
+  searchParams.value.scrollPageNum = 1;
+  searchParams.value.text = String(searchText.value);
+  pagination.total = 0;
+  pagination.current = 1;
+  // 搜索
+  // 置空所有数据
+  articleList.value = [];
+  pictureList.value = [];
+  videoList.value = [];
+  //url 拼接搜索条件
+  router
+    .push({
+      query: {
+        ...searchParams.value,
+        text: searchText.value,
+        pageNum: 1,
+        scrollPageNum: 1,
+      },
+    })
+    .then(() => {
+      loadData(searchParams.value);
+      // 搜索完成后，清除锁变量
+      isSearching.value = false;
+    });
+};
+// 输入框keydown事件处理函数
+const handleEnterKey = (event: KeyboardEvent) => {
+  if (!isSearching.value) {
+    event.preventDefault(); // 防止默认行为，如提交表单
+    onSearch(); // 执行搜索操作
+  }
+};
+
+// const trimSearchText = (event: any) => {
+//   searchText.value = event ? event.target.value.replace(/\s+/g, "") : "";
+// };
+
+const onTabChange = (key: string) => {
+  searchParams.value.type = key;
+  searchParams.value.text = searchText.value as string;
+  searchParams.value.pageNum = 1;
+  searchParams.value.scrollPageNum = 1;
+  pagination.current = 1;
+  pagination.pageSize = key === "video" ? 12 : 10;
+  pagination.total = 0;
+  // 置空所有数据
+  articleList.value = [];
+  pictureList.value = [];
+  videoList.value = [];
+  router.push({
+    path: `/${key}`,
+    query: searchParams.value, //搜索参数
+  });
+  loadData(searchParams.value);
+};
+
+/**
+ * 请求文章列表，用户列表，图片列表
+ */
+const loadData = (params: any) => {
+  if (params.type === "article" || params.type === "video") {
+    pageLoading.value = true;
+  } else {
+    loading.value = true;
+    finish.value = false;
+  }
+  const queryData = {
+    current: params.type === "picture" ? params.scrollPageNum : params.pageNum,
+    pageSize: params.type === "video" ? 12 : params.pageSize,
+    searchText: params.text,
+    type: params.type,
+    sortField: "updateTime",
+    sortOrder: "desc",
+  };
+  if (searchParams.value.scrollPageNum > 10) {
+    loading.value = false;
+    finish.value = true;
+    return;
+  }
+  // 聚合接口请求
+  myAxios
+    .post("search/async", queryData)
+    .then((res) => {
+      if (queryData.type === "picture") {
+        pictureList.value = res.dataList
+          ? [...pictureList.value, ...(res.dataList as [])]
+          : [];
+        finish.value = !res.dataList;
+      } else if (queryData.type === "video") {
+        pagination.total = Number(res.total);
+        // videoList.value = res.dataList
+        //   ? [...videoList.value, ...(res.dataList as [])]
+        //   : [];
+        videoList.value = res.dataList ?? [];
+        pagination.current = Number(res.current);
+        pagination.pageSize = 12;
+        isHighlight.value = Number(res.isHighlight);
+      } else if (queryData.type === "article") {
+        pagination.total = Number(res.total);
+        // articleList.value = res.dataList
+        //   ? [...articleList.value, ...(res.dataList as [])]
+        //   : [];
+        isHighlight.value = Number(res.isHighlight);
+        articleList.value = res.dataList ?? [];
+        pagination.current = Number(res.current);
+        pagination.pageSize = 10;
+        console.log(articleList.value);
+      }
+      loading.value = false;
+      pageLoading.value = false;
+    })
+    .catch((error: any) => {
+      pageLoading.value = false;
+      loading.value = false;
+      finish.value = true;
+      isSearching.value = false;
+      // 置空所有数据
+      articleList.value = [];
+      pictureList.value = [];
+      videoList.value = [];
+      throw new Error(error);
+    });
+};
 onMounted(() => {
   loadData(searchParams.value);
-  window.addEventListener("scroll", myThrottle(handleScroll, 500));
 });
 
 onUnmounted(() => {
-  window.removeEventListener("scroll", handleScroll);
+  if (isScrollEventAdded) {
+    window.removeEventListener("scroll", throttledHandleScroll);
+  }
 });
 </script>
 
 <style lang="scss" scoped>
+.title-class {
+  font-size: 25px;
+  background: linear-gradient(58deg, #4096ff, #1677ff, #0000ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.emoji-container {
+  text-align: center; /* 居中显示emoji */
+  margin-top: 20px; /* 与搜索框保持一定的距离 */
+  /* 其他样式根据需要进行添加 */
+}
+
 .custom-dropdown-menu {
   max-height: 200px; /* 设置最大高度 */
   overflow-y: auto;
@@ -327,16 +416,17 @@ onUnmounted(() => {
 
 /* 由于搜索框现在是固定定位，需要调整页面的其他部分，避免被搜索框遮挡 */
 .index-page {
-  padding-top: 20px; /* 根据搜索框的高度调整 */
+  margin-top: 35px;
+  padding-top: 35px;
 }
 
 .search-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  max-width: 800px; /* 移除最大宽度限制 */
+  max-width: 65%; /* 移除最大宽度限制 */
   margin: 0 auto; /* 居中 */
-  padding: 12px; /* 内边距 */
+  padding: 0 0 10px 0;
 }
 
 .autocomplete {

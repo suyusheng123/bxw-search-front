@@ -9,21 +9,21 @@
       <div class="card_content">
         <div
           class="card_img"
-          @mouseover="hoveredImage = item.turl"
+          @mouseover="hoveredImage = item.url"
           @mouseleave="hoveredImage = ''"
-          @click="previewImage(item.turl)"
+          @click="previewImage(item.url)"
         >
           <lazy-img
             alt="example"
-            :url="item.turl"
-            :style="getImageStyle(item.turl)"
+            :url="item.url"
+            :style="getImageStyle(item.url)"
             referrerPolicy="no-referrer"
             crossorigin="true"
           />
         </div>
         <div class="content">
           <a
-            :href="item.purl"
+            :href="item.url"
             target="_blank"
             class="text-black text-ellipsis"
             :title="item.title"
@@ -77,7 +77,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 const previewImage = (url: string) => {
   // 将props.pictureList的turl全部提取出来，放到一个数组里去
-  const urls = props.pictureList.map((item: any) => item.turl) as string[];
+  const urls = props.pictureList.map((item: any) => item.url) as string[];
   console.log(urls);
   imgs.value = urls; // 设置预览图片的URL
   console.log(imgs.value);

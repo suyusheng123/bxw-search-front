@@ -5,6 +5,12 @@
 </template>
 
 <style>
+.emoji-container {
+  text-align: center; /* 居中显示emoji */
+  margin-bottom: 20px; /* 与搜索框保持一定的距离 */
+  /* 其他样式根据需要进行添加 */
+}
+
 #app {
   padding: 20px;
   max-width: 1024px;
@@ -24,4 +30,6 @@ nav a.router-link-exact-active {
   color: #42b983;
 }
 </style>
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { BugTwoTone } from "@ant-design/icons-vue";
+</script>
