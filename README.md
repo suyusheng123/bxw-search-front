@@ -115,6 +115,7 @@ export default myThrottle;
 3. 对后端的返回内容是否进行高亮处理进行了判断，前端和后端约定了一个字段，isHighlight，前端发现isHighlight = 0,就进行高亮处理，高亮是采用分词器tiny-segmenter + 正则表达式匹配 + v-html做的，如果为1，那么进行渲染
 
 ### 后端：
+代码地址：https://bgithub.xyz/suyusheng123/bxw-search-backend
 
 代码地址：https://bgithub.xyz/suyusheng123/bxw-search-backend
 
